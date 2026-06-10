@@ -7,11 +7,11 @@ local Code = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 local UniqueID = ""
 for _ = 1, 10 do
 	local Index = math.random(1, #Code)
-	UniqueID = UniqueID .. string.sub(Code, Index, Index)
+	UniqueID ..= string.sub(Code, Index, Index)
 end
 
 local Folders = {
-	Characters = workspace
+	Characters = RunService:IsStudio() and workspace or workspace:WaitForChild("Characters")
 }
 
 local LocalPlayer = Players.LocalPlayer
@@ -25,10 +25,10 @@ Configuration.Name = UniqueID
 Configuration.Parent = LocalPlayer
 
 local Options = {
-	["ESP"] = false,
-	["LockOn"] = false,
-	["Speed"] = false,
-	["SpeedValue"] = 16
+	ESP = false,
+	LockOn = false,
+	Speed = false,
+	SpeedValue = 16
 }
 
 local Connections = {}
@@ -100,9 +100,6 @@ CloseButton.Font = Enum.Font.GothamBold
 CloseButton.Text = "CLOSE"
 CloseButton.TextColor3 = Color3.new(1, 1, 1)
 CloseButton.TextSize = 14
-CloseButton.Activated:Connect(function()
-	Main.Visible = not Main.Visible
-end)
 
 ScrollingFrame.Parent = Main
 ScrollingFrame.Active = true
@@ -118,6 +115,11 @@ ScrollingFrame.TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
 UIListLayout.Parent = ScrollingFrame
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 2)
+
+local BindColorRE = "(Bind%s*%S*)"
+local function BuildTooltipText(Text)
+	return Text:gsub(BindColorRE, '<font color="#55FF7F"><b>%1</b></font>')
+end
 
 local function AddOption(Name, RealName, Value, Info)
 	local Option = Instance.new("Frame")
@@ -155,8 +157,10 @@ local function AddOption(Name, RealName, Value, Info)
 	UICorner.Parent = Bool
 	UICorner.CornerRadius = UDim.new(1, 0)
 
+	local EnabledColor = Variables.BoolEnabledColor
+	local DisabledColor = Variables.BoolDisabledColor
 	Configuration:GetAttributeChangedSignal(RealName):Connect(function()
-		Bool.BackgroundColor3 = Configuration:GetAttribute(RealName) and Variables.BoolEnabledColor or Variables.BoolDisabledColor
+		Bool.BackgroundColor3 = Configuration:GetAttribute(RealName) and EnabledColor or DisabledColor
 	end)
 
 	local OptionTitle = Instance.new("TextLabel")
@@ -191,7 +195,7 @@ local function AddOption(Name, RealName, Value, Info)
 		Amount.TextSize = 20
 		Amount.TextWrapped = true
 	end
-	
+
 	if Info ~= nil then
 		local Tooltip = Instance.new("Frame")
 		Tooltip.Name = "Tooltip"
@@ -220,18 +224,12 @@ local function AddOption(Name, RealName, Value, Info)
 		TooltipText.AutomaticSize = Enum.AutomaticSize.XY
 		TooltipText.Size = UDim2.new(0, 0, 0, 0)
 		TooltipText.Font = Enum.Font.Gotham
-		TooltipText.Text = ""
+		TooltipText.Text = BuildTooltipText(Info)
 		TooltipText.TextColor3 = Color3.new(0.85, 0.85, 0.85)
 		TooltipText.TextSize = 13
 		TooltipText.TextWrapped = false
 		TooltipText.ZIndex = 10
 		TooltipText.RichText = true
-
-		local function BuildTooltipText(Text)
-			return Text:gsub("(Bind%s*%S*)", '<font color="#55FF7F"><b>%1</b></font>')
-		end
-
-		TooltipText.Text = BuildTooltipText(Info)
 
 		Button.MouseEnter:Connect(function()
 			Tooltip.Visible = true
@@ -270,32 +268,31 @@ Topbar.InputEnded:Connect(function(Input)
 end)
 
 UserInputService.InputChanged:Connect(function(Input)
-	if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-		local Delta = Input.Position - DragStart
-		Main.Position = UDim2.new(
-			FrameStart.X.Scale,
-			FrameStart.X.Offset + Delta.X,
-			FrameStart.Y.Scale,
-			FrameStart.Y.Offset + Delta.Y
-		)
-	end
+	if not Dragging or Input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+	local Delta = Input.Position - DragStart
+	Main.Position = UDim2.new(
+		FrameStart.X.Scale,
+		FrameStart.X.Offset + Delta.X,
+		FrameStart.Y.Scale,
+		FrameStart.Y.Offset + Delta.Y
+	)
 end)
 
--- ESP
+local ESPName = "ESP_" .. UniqueID
 local ESP = AddOption("ESP", "ESP", nil, "Highlights all players on the map")
 table.insert(Connections, Configuration:GetAttributeChangedSignal("ESP"):Connect(function()
 	if Configuration:GetAttribute("ESP") then
 		for _, v in Folders.Characters:GetChildren() do
-			if v ~= Character and v:IsA("Model") and v:FindFirstChild("Humanoid") and not v:FindFirstChild("ESP_" .. UniqueID) then
+			if v ~= Character and v:IsA("Model") and v:FindFirstChild("Humanoid") and not v:FindFirstChild(ESPName) then
 				local Highlight = Instance.new("Highlight")
-				Highlight.Name = "ESP_" .. UniqueID
+				Highlight.Name = ESPName
 				Highlight.Parent = v
 			end
 		end
 		Connections.ESP = Folders.Characters.ChildAdded:Connect(function(Child)
 			if Child ~= Character and Child:IsA("Model") and Child:FindFirstChild("Humanoid") then
 				local Highlight = Instance.new("Highlight")
-				Highlight.Name = "ESP_" .. UniqueID
+				Highlight.Name = ESPName
 				Highlight.Parent = Child
 			end
 		end)
@@ -305,20 +302,22 @@ table.insert(Connections, Configuration:GetAttributeChangedSignal("ESP"):Connect
 			Connections.ESP = nil
 		end
 		for _, v in Folders.Characters:GetChildren() do
-			if v:IsA("Model") and v:FindFirstChild("Humanoid") and v:FindFirstChild("ESP_" .. UniqueID) then
-				v:FindFirstChild("ESP_" .. UniqueID):Destroy()
+			if v:IsA("Model") and v:FindFirstChild("Humanoid") then
+				local h = v:FindFirstChild(ESPName)
+				if h then h:Destroy() end
 			end
 		end
 	end
 end))
 
--- Speed
 local Speed = AddOption("Speed", "Speed", Configuration:GetAttribute("SpeedValue"))
 table.insert(Connections, Configuration:GetAttributeChangedSignal("Speed"):Connect(function()
 	if Configuration:GetAttribute("Speed") then
 		Connections.Speed = RunService.RenderStepped:Connect(function()
-			if not tonumber(Speed.Amount.Text) then return end
-			Humanoid.WalkSpeed = tonumber(Configuration:GetAttribute("SpeedValue"))
+			local val = tonumber(Speed.Amount.Text)
+			if val then
+				Humanoid.WalkSpeed = val
+			end
 		end)
 	else
 		if Connections.Speed then
@@ -329,19 +328,26 @@ table.insert(Connections, Configuration:GetAttributeChangedSignal("Speed"):Conne
 	end
 end))
 Speed.Amount:GetPropertyChangedSignal("Text"):Connect(function()
-	if tonumber(Speed.Amount.Text) then
-		Configuration:SetAttribute("SpeedValue", tonumber(Speed.Amount.Text))
+	local val = tonumber(Speed.Amount.Text)
+	if val then
+		Configuration:SetAttribute("SpeedValue", val)
 	end
 end)
 
--- Lock On
+local MaxDist = Variables.LockOnMaxDistance
+local MaxAngle = Variables.LockOnAngle
+local MaxDistExtended = MaxDist + 20
+
 local function GetBestLockOnTarget()
 	local Best = nil
-	local BestAngle = Variables.LockOnAngle
+	local BestAngle = MaxAngle
+	local CamCFrame = Camera.CFrame
+	local CamPos = CamCFrame.Position
+	local CamLook = CamCFrame.LookVector
+	local RootPos = RootPart.Position
 
 	for _, v in Folders.Characters:GetChildren() do
-		if v == Character then continue end
-		if not v:IsA("Model") then continue end
+		if v == Character or not v:IsA("Model") then continue end
 
 		local TargetHumanoid = v:FindFirstChildOfClass("Humanoid")
 		local TargetRoot = v:FindFirstChild("HumanoidRootPart")
@@ -349,14 +355,14 @@ local function GetBestLockOnTarget()
 		if not TargetHumanoid or not TargetRoot then continue end
 		if TargetHumanoid.Health <= 0 then continue end
 
-		local Distance = (TargetRoot.Position - RootPart.Position).Magnitude
-		if Distance > Variables.LockOnMaxDistance then continue end
+		local TargetPos = TargetRoot.Position
+		if (TargetPos - RootPos).Magnitude > MaxDist then continue end
 
-		local _, OnScreen = Camera:WorldToScreenPoint(TargetRoot.Position)
+		local _, OnScreen = Camera:WorldToScreenPoint(TargetPos)
 		if not OnScreen then continue end
 
-		local DirToTarget = (TargetRoot.Position - Camera.CFrame.Position).Unit
-		local Angle = math.deg(math.acos(math.clamp(DirToTarget:Dot(Camera.CFrame.LookVector), -1, 1)))
+		local Dot = (TargetPos - CamPos).Unit:Dot(CamLook)
+		local Angle = math.deg(math.acos(math.clamp(Dot, -1, 1)))
 
 		if Angle < BestAngle then
 			BestAngle = Angle
@@ -381,6 +387,7 @@ table.insert(Connections, Configuration:GetAttributeChangedSignal("LockOn"):Conn
 	end
 end))
 
+local LockOnOffset = Vector3.new(0, 1, 0)
 table.insert(Connections, RunService.RenderStepped:Connect(function()
 	if not Configuration:GetAttribute("LockOn") or not Variables.LockOnTarget then return end
 
@@ -393,22 +400,23 @@ table.insert(Connections, RunService.RenderStepped:Connect(function()
 		return
 	end
 
-	local Distance = (Variables.LockOnTarget.Position - RootPart.Position).Magnitude
-	if Distance > Variables.LockOnMaxDistance + 20 then
+	if (Variables.LockOnTarget.Position - RootPart.Position).Magnitude > MaxDistExtended then
 		Variables.LockOnTarget = nil
 		Configuration:SetAttribute("LockOn", false)
 		return
 	end
 
-	local TargetPos = Variables.LockOnTarget.Position + Vector3.new(0, 1, 0)
-	local Current = Camera.CFrame
-	Camera.CFrame = Current:Lerp(CFrame.lookAt(Current.Position, TargetPos), 1)
+	local TargetPos = Variables.LockOnTarget.Position + LockOnOffset
+	local CamPos = Camera.CFrame.Position
+	Camera.CFrame = CFrame.lookAt(CamPos, TargetPos)
 end))
 
 UserInputService.InputBegan:Connect(function(Input, GameProcessed)
 	if GameProcessed then return end
 	if Input.KeyCode == Enum.KeyCode.X then
 		Configuration:SetAttribute("LockOn", not Configuration:GetAttribute("LockOn"))
+	elseif Input.KeyCode == Enum.KeyCode.T then
+		Burmalda.Enabled = not Burmalda.Enabled
 	end
 end)
 
@@ -423,12 +431,13 @@ end)
 
 CloseButton.Activated:Connect(function()
 	Debris:AddItem(Burmalda, 0)
-	for i, v in Configuration:GetAttributes() do
+	for i in Configuration:GetAttributes() do
 		Configuration:SetAttribute(i, false)
 	end
 	for _, v in Connections do
-		v:Disconnect()
-		v = nil
+		if typeof(v) == "RBXScriptConnection" then
+			v:Disconnect()
+		end
 	end
 	Debris:AddItem(Configuration, 0)
 end)
