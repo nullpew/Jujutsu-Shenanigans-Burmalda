@@ -1,0 +1,436 @@
+local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local Code = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+local UniqueID = ""
+for _ = 1, 10 do
+	local Index = math.random(1, #Code)
+	UniqueID = UniqueID .. string.sub(Code, Index, Index)
+end
+
+local Folders = {
+	Characters = workspace
+}
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+local Camera = workspace.CurrentCamera
+
+local Configuration = Instance.new("Configuration")
+Configuration.Name = UniqueID
+Configuration.Parent = LocalPlayer
+
+local Options = {
+	["ESP"] = false,
+	["LockOn"] = false,
+	["Speed"] = false,
+	["SpeedValue"] = 16
+}
+
+local Connections = {}
+local Variables = {
+	BoolEnabledColor = Color3.new(0.333333, 1, 0.498039),
+	BoolDisabledColor = Color3.new(1, 0.254902, 0.254902),
+	LockOnTarget = nil,
+	LockOnMaxDistance = 120,
+	LockOnAngle = 35
+}
+
+for i, v in Options do
+	Configuration:SetAttribute(i, v)
+end
+
+local Burmalda = Instance.new("ScreenGui")
+local Main = Instance.new("Frame")
+local Topbar = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local CloseButton = Instance.new("TextButton")
+local ScrollingFrame = Instance.new("ScrollingFrame")
+local UIListLayout = Instance.new("UIListLayout")
+
+Burmalda.Name = UniqueID
+Burmalda.Parent = LocalPlayer:WaitForChild("PlayerGui")
+Burmalda.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Burmalda.ResetOnSpawn = false
+
+Main.Name = "Main"
+Main.Parent = Burmalda
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.new(0.0823529, 0.0823529, 0.0823529)
+Main.BackgroundTransparency = 0.2
+Main.BorderSizePixel = 0
+Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+Main.Size = UDim2.new(0, 400, 0, 300)
+
+Topbar.Name = "Topbar"
+Topbar.Parent = Main
+Topbar.AnchorPoint = Vector2.new(0.5, 0)
+Topbar.BackgroundColor3 = Color3.new(0.0823529, 0.0823529, 0.0823529)
+Topbar.BorderSizePixel = 0
+Topbar.Position = UDim2.new(0.5, 0, 0, 0)
+Topbar.Size = UDim2.new(1, 0, 0, 25)
+
+Title.Name = "Title"
+Title.Parent = Topbar
+Title.AnchorPoint = Vector2.new(0.5, 0.5)
+Title.BackgroundTransparency = 1
+Title.BorderSizePixel = 0
+Title.Position = UDim2.new(0.5, 0, 0.5, 0)
+Title.Size = UDim2.new(1, -10, 1, -5)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Burmalda"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextScaled = true
+Title.TextWrapped = true
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+CloseButton.Name = "CloseButton"
+CloseButton.Parent = Topbar
+CloseButton.AnchorPoint = Vector2.new(0, 0.5)
+CloseButton.BackgroundColor3 = Color3.new(0.12549, 0.12549, 0.12549)
+CloseButton.BorderSizePixel = 0
+CloseButton.Position = UDim2.new(1, -53, 0.5, 0)
+CloseButton.Size = UDim2.new(0, 50, 1, -6)
+CloseButton.AutoButtonColor = false
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "CLOSE"
+CloseButton.TextColor3 = Color3.new(1, 1, 1)
+CloseButton.TextSize = 14
+CloseButton.Activated:Connect(function()
+	Main.Visible = not Main.Visible
+end)
+
+ScrollingFrame.Parent = Main
+ScrollingFrame.Active = true
+ScrollingFrame.AnchorPoint = Vector2.new(0.5, 0)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.Position = UDim2.new(0.5, 0, 0, 28)
+ScrollingFrame.Size = UDim2.new(1, 0, 1, -31)
+ScrollingFrame.BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
+ScrollingFrame.ScrollBarThickness = 6
+ScrollingFrame.TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
+
+UIListLayout.Parent = ScrollingFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 2)
+
+local function AddOption(Name, RealName, Value, Info)
+	local Option = Instance.new("Frame")
+	Option.Name = RealName
+	Option.Parent = ScrollingFrame
+	Option.BackgroundColor3 = Color3.new(0.0823529, 0.0823529, 0.0823529)
+	Option.BorderSizePixel = 0
+	Option.Size = UDim2.new(1, -10, 0, 35)
+
+	local Button = Instance.new("TextButton")
+	Button.Name = "Button"
+	Button.Parent = Option
+	Button.AnchorPoint = Vector2.new(0.5, 0.5)
+	Button.BackgroundTransparency = 1
+	Button.BorderSizePixel = 0
+	Button.Position = UDim2.new(0.5, 0, 0.5, 0)
+	Button.Size = UDim2.new(1, 0, 1, 0)
+	Button.Font = Enum.Font.SourceSans
+	Button.TextTransparency = 1
+	Button.TextSize = 14
+	Button.Activated:Connect(function()
+		Configuration:SetAttribute(RealName, not Configuration:GetAttribute(RealName))
+	end)
+
+	local Bool = Instance.new("Frame")
+	Bool.Name = "Bool"
+	Bool.Parent = Option
+	Bool.AnchorPoint = Vector2.new(0, 0.5)
+	Bool.BackgroundColor3 = Variables.BoolDisabledColor
+	Bool.BorderSizePixel = 0
+	Bool.Position = UDim2.new(0, 8, 0.5, 0)
+	Bool.Size = UDim2.new(0, 20, 1, -15)
+
+	local UICorner = Instance.new("UICorner")
+	UICorner.Parent = Bool
+	UICorner.CornerRadius = UDim.new(1, 0)
+
+	Configuration:GetAttributeChangedSignal(RealName):Connect(function()
+		Bool.BackgroundColor3 = Configuration:GetAttribute(RealName) and Variables.BoolEnabledColor or Variables.BoolDisabledColor
+	end)
+
+	local OptionTitle = Instance.new("TextLabel")
+	OptionTitle.Name = "OptionTitle"
+	OptionTitle.Parent = Option
+	OptionTitle.AnchorPoint = Vector2.new(0, 0.5)
+	OptionTitle.BackgroundTransparency = 1
+	OptionTitle.BorderSizePixel = 0
+	OptionTitle.Position = UDim2.new(0, 35, 0.5, 0)
+	OptionTitle.Size = UDim2.new(1, -115, 1, -15)
+	OptionTitle.Font = Enum.Font.GothamBold
+	OptionTitle.Text = Name
+	OptionTitle.TextColor3 = Color3.new(1, 1, 1)
+	OptionTitle.TextScaled = true
+	OptionTitle.TextWrapped = true
+	OptionTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+	if Value ~= nil then
+		local Amount = Instance.new("TextBox")
+		Amount.Name = "Amount"
+		Amount.Parent = Option
+		Amount.AnchorPoint = Vector2.new(0, 0.5)
+		Amount.BackgroundColor3 = Color3.new(0.12549, 0.12549, 0.12549)
+		Amount.BorderSizePixel = 0
+		Amount.Position = UDim2.new(1, -85, 0.5, 0)
+		Amount.Size = UDim2.new(0, 80, 1, -10)
+		Amount.Font = Enum.Font.Gotham
+		Amount.PlaceholderColor3 = Color3.new(0.313725, 0.313725, 0.313725)
+		Amount.PlaceholderText = "Value"
+		Amount.Text = tostring(Value)
+		Amount.TextColor3 = Color3.new(1, 1, 1)
+		Amount.TextSize = 20
+		Amount.TextWrapped = true
+	end
+	
+	if Info ~= nil then
+		local Tooltip = Instance.new("Frame")
+		Tooltip.Name = "Tooltip"
+		Tooltip.Parent = Burmalda
+		Tooltip.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+		Tooltip.BorderSizePixel = 0
+		Tooltip.AutomaticSize = Enum.AutomaticSize.XY
+		Tooltip.Size = UDim2.new(0, 0, 0, 0)
+		Tooltip.Visible = false
+		Tooltip.ZIndex = 10
+
+		local TooltipPadding = Instance.new("UIPadding")
+		TooltipPadding.PaddingLeft = UDim.new(0, 10)
+		TooltipPadding.PaddingRight = UDim.new(0, 10)
+		TooltipPadding.PaddingTop = UDim.new(0, 6)
+		TooltipPadding.PaddingBottom = UDim.new(0, 6)
+		TooltipPadding.Parent = Tooltip
+
+		local TooltipCorner = Instance.new("UICorner")
+		TooltipCorner.CornerRadius = UDim.new(0, 6)
+		TooltipCorner.Parent = Tooltip
+
+		local TooltipText = Instance.new("TextLabel")
+		TooltipText.Parent = Tooltip
+		TooltipText.BackgroundTransparency = 1
+		TooltipText.AutomaticSize = Enum.AutomaticSize.XY
+		TooltipText.Size = UDim2.new(0, 0, 0, 0)
+		TooltipText.Font = Enum.Font.Gotham
+		TooltipText.Text = ""
+		TooltipText.TextColor3 = Color3.new(0.85, 0.85, 0.85)
+		TooltipText.TextSize = 13
+		TooltipText.TextWrapped = false
+		TooltipText.ZIndex = 10
+		TooltipText.RichText = true
+
+		local function BuildTooltipText(Text)
+			return Text:gsub("(Bind%s*%S*)", '<font color="#55FF7F"><b>%1</b></font>')
+		end
+
+		TooltipText.Text = BuildTooltipText(Info)
+
+		Button.MouseEnter:Connect(function()
+			Tooltip.Visible = true
+		end)
+
+		Button.MouseLeave:Connect(function()
+			Tooltip.Visible = false
+		end)
+
+		UserInputService.InputChanged:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseMovement then
+				Tooltip.Position = UDim2.new(0, Input.Position.X + 14, 0, Input.Position.Y + 14)
+			end
+		end)
+	end
+
+	return Option
+end
+
+local Dragging = false
+local DragStart = nil
+local FrameStart = nil
+
+Topbar.InputBegan:Connect(function(Input)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+		Dragging = true
+		DragStart = Input.Position
+		FrameStart = Main.Position
+	end
+end)
+
+Topbar.InputEnded:Connect(function(Input)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+		Dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(Input)
+	if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+		local Delta = Input.Position - DragStart
+		Main.Position = UDim2.new(
+			FrameStart.X.Scale,
+			FrameStart.X.Offset + Delta.X,
+			FrameStart.Y.Scale,
+			FrameStart.Y.Offset + Delta.Y
+		)
+	end
+end)
+
+-- ESP
+local ESP = AddOption("ESP", "ESP", nil, "Highlights all players on the map")
+table.insert(Connections, Configuration:GetAttributeChangedSignal("ESP"):Connect(function()
+	if Configuration:GetAttribute("ESP") then
+		for _, v in Folders.Characters:GetChildren() do
+			if v ~= Character and v:IsA("Model") and v:FindFirstChild("Humanoid") and not v:FindFirstChild("ESP_" .. UniqueID) then
+				local Highlight = Instance.new("Highlight")
+				Highlight.Name = "ESP_" .. UniqueID
+				Highlight.Parent = v
+			end
+		end
+		Connections.ESP = Folders.Characters.ChildAdded:Connect(function(Child)
+			if Child ~= Character and Child:IsA("Model") and Child:FindFirstChild("Humanoid") then
+				local Highlight = Instance.new("Highlight")
+				Highlight.Name = "ESP_" .. UniqueID
+				Highlight.Parent = Child
+			end
+		end)
+	else
+		if Connections.ESP then
+			Connections.ESP:Disconnect()
+			Connections.ESP = nil
+		end
+		for _, v in Folders.Characters:GetChildren() do
+			if v:IsA("Model") and v:FindFirstChild("Humanoid") and v:FindFirstChild("ESP_" .. UniqueID) then
+				v:FindFirstChild("ESP_" .. UniqueID):Destroy()
+			end
+		end
+	end
+end))
+
+-- Speed
+local Speed = AddOption("Speed", "Speed", Configuration:GetAttribute("SpeedValue"))
+table.insert(Connections, Configuration:GetAttributeChangedSignal("Speed"):Connect(function()
+	if Configuration:GetAttribute("Speed") then
+		Connections.Speed = RunService.RenderStepped:Connect(function()
+			if not tonumber(Speed.Amount.Text) then return end
+			Humanoid.WalkSpeed = tonumber(Configuration:GetAttribute("SpeedValue"))
+		end)
+	else
+		if Connections.Speed then
+			Connections.Speed:Disconnect()
+			Connections.Speed = nil
+		end
+		Humanoid.WalkSpeed = 16
+	end
+end))
+Speed.Amount:GetPropertyChangedSignal("Text"):Connect(function()
+	if tonumber(Speed.Amount.Text) then
+		Configuration:SetAttribute("SpeedValue", tonumber(Speed.Amount.Text))
+	end
+end)
+
+-- Lock On
+local function GetBestLockOnTarget()
+	local Best = nil
+	local BestAngle = Variables.LockOnAngle
+
+	for _, v in Folders.Characters:GetChildren() do
+		if v == Character then continue end
+		if not v:IsA("Model") then continue end
+
+		local TargetHumanoid = v:FindFirstChildOfClass("Humanoid")
+		local TargetRoot = v:FindFirstChild("HumanoidRootPart")
+
+		if not TargetHumanoid or not TargetRoot then continue end
+		if TargetHumanoid.Health <= 0 then continue end
+
+		local Distance = (TargetRoot.Position - RootPart.Position).Magnitude
+		if Distance > Variables.LockOnMaxDistance then continue end
+
+		local _, OnScreen = Camera:WorldToScreenPoint(TargetRoot.Position)
+		if not OnScreen then continue end
+
+		local DirToTarget = (TargetRoot.Position - Camera.CFrame.Position).Unit
+		local Angle = math.deg(math.acos(math.clamp(DirToTarget:Dot(Camera.CFrame.LookVector), -1, 1)))
+
+		if Angle < BestAngle then
+			BestAngle = Angle
+			Best = TargetRoot
+		end
+	end
+
+	return Best
+end
+
+local LockOn = AddOption("Lock On", "LockOn", nil, "Allows you to lock the camera to a target | Bind X")
+table.insert(Connections, Configuration:GetAttributeChangedSignal("LockOn"):Connect(function()
+	if Configuration:GetAttribute("LockOn") then
+		local Target = GetBestLockOnTarget()
+		if Target then
+			Variables.LockOnTarget = Target
+		else
+			Configuration:SetAttribute("LockOn", false)
+		end
+	else
+		Variables.LockOnTarget = nil
+	end
+end))
+
+table.insert(Connections, RunService.RenderStepped:Connect(function()
+	if not Configuration:GetAttribute("LockOn") or not Variables.LockOnTarget then return end
+
+	local TargetCharacter = Variables.LockOnTarget.Parent
+	local TargetHumanoid = TargetCharacter and TargetCharacter:FindFirstChildOfClass("Humanoid")
+
+	if not TargetHumanoid or TargetHumanoid.Health <= 0 then
+		Variables.LockOnTarget = nil
+		Configuration:SetAttribute("LockOn", false)
+		return
+	end
+
+	local Distance = (Variables.LockOnTarget.Position - RootPart.Position).Magnitude
+	if Distance > Variables.LockOnMaxDistance + 20 then
+		Variables.LockOnTarget = nil
+		Configuration:SetAttribute("LockOn", false)
+		return
+	end
+
+	local TargetPos = Variables.LockOnTarget.Position + Vector3.new(0, 1, 0)
+	local Current = Camera.CFrame
+	Camera.CFrame = Current:Lerp(CFrame.lookAt(Current.Position, TargetPos), 1)
+end))
+
+UserInputService.InputBegan:Connect(function(Input, GameProcessed)
+	if GameProcessed then return end
+	if Input.KeyCode == Enum.KeyCode.X then
+		Configuration:SetAttribute("LockOn", not Configuration:GetAttribute("LockOn"))
+	end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+	Character = NewCharacter
+	Humanoid = NewCharacter:WaitForChild("Humanoid")
+	RootPart = NewCharacter:WaitForChild("HumanoidRootPart")
+	Variables.LockOnTarget = nil
+	Configuration:SetAttribute("LockOn", false)
+	Configuration:SetAttribute("Speed", false)
+end)
+
+CloseButton.Activated:Connect(function()
+	Debris:AddItem(Burmalda, 0)
+	for i, v in Configuration:GetAttributes() do
+		Configuration:SetAttribute(i, false)
+	end
+	for _, v in Connections do
+		v:Disconnect()
+		v = nil
+	end
+	Debris:AddItem(Configuration, 0)
+end)
+
+print("Burmalda loaded " .. UniqueID)
