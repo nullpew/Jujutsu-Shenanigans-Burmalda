@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/nullpew/Jujutsu-Shenanigans-Burmalda/refs/heads/main/source"))()
